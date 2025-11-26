@@ -1,0 +1,4 @@
+repository "Videojuego 2025-11-26_10-53-00/Videojuego@4674130254551@cloud"
+  path "/"
+    br "/main"
+    co "/main"
