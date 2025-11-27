@@ -4,8 +4,8 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movimiento")]
-    public float moveSpeed = 6f;
-    public float rotationSpeed = 10f;
+    public float moveSpeed = 6f;          // Adelante / atrás
+    public float rotationSpeed = 10f;    // Más velocidad de giro
 
     [Header("Salto")]
     public float jumpForce = 7f;
@@ -13,116 +13,98 @@ public class PlayerController : MonoBehaviour
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
 
-    [Header("Patear")]
-    public Transform kickPoint;
-    public float kickRadius = 1f;
-    public float kickForce = 10f;
-
     [Header("Animación")]
     public Animator animator;
 
     private Rigidbody rb;
-    private Vector3 inputDir;
+    private float inputV;  // W / S
+    private float inputH;  // A / D
     private bool isGrounded;
 
-    void Awake()
+    private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+
+        if (animator == null)
+            animator = GetComponentInChildren<Animator>();
+
+        rb.freezeRotation = true;
     }
 
-    void Update()
+    private void Update()
     {
-        // INPUT
-        float h = Input.GetAxisRaw("Horizontal"); // A/D
-        float v = Input.GetAxisRaw("Vertical");   // W/S
-        inputDir = new Vector3(h, 0f, v).normalized;
+        // 1) LEER INPUTS
+        inputV = Input.GetAxisRaw("Vertical");   // W (1) / S (-1)
+        inputH = Input.GetAxisRaw("Horizontal"); // A (-1) / D (1)
 
-        // Actualizar Blend Tree
-        animator.SetFloat("MoveX", h);
-        animator.SetFloat("MoveZ", v);
-
-        // Comprobar suelo
-        CheckGround();
+        // 2) CHEQUEAR SUELO
+        isGrounded = Physics.CheckSphere(
+            groundCheck.position,
+            groundCheckRadius,
+            groundLayer
+        );
         animator.SetBool("IsGrounded", isGrounded);
 
-        // Salto
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        // 3) BLEND TREE: MoveZ (adelante/atrás)
+        float targetMoveZ = inputV;
+        float currentMoveZ = animator.GetFloat("MoveZ");
+        float smoothMoveZ = Mathf.Lerp(currentMoveZ, targetMoveZ, Time.deltaTime * 10f);
+        animator.SetFloat("MoveZ", smoothMoveZ);
+
+        // 4) BLEND TREE: Turn (giro en el sitio)
+        float targetTurn = inputH;  // A = -1, D = 1
+        float currentTurn = animator.GetFloat("Turn");
+        float smoothTurn = Mathf.Lerp(currentTurn, targetTurn, Time.deltaTime * 10f);
+        animator.SetFloat("Turn", smoothTurn);
+
+        // 5) SALTO (Space)
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             Jump();
         }
 
-        // Patada (ej: tecla K)
+        // 6) PATEAR (K)
         if (Input.GetKeyDown(KeyCode.K))
         {
             Kick();
         }
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
-        // Movimiento
-        Vector3 velocity = inputDir * moveSpeed;
-        Vector3 move = new Vector3(velocity.x, rb.velocity.y, velocity.z);
-        rb.velocity = move;
+        // MOVIMIENTO ADELANTE / ATRÁS
+        Vector3 moveDir = transform.forward * inputV * moveSpeed;
+        Vector3 velocity = new Vector3(moveDir.x, rb.velocity.y, moveDir.z);
+        rb.velocity = velocity;
 
-        // Rotar hacia la dirección de movimiento
-        Vector3 lookDir = new Vector3(inputDir.x, 0f, inputDir.z);
-        if (lookDir.sqrMagnitude > 0.001f)
+        // ROTACIÓN EN EL SITIO (A / D)
+        if (Mathf.Abs(inputH) > 0.01f)
         {
-            Quaternion targetRot = Quaternion.LookRotation(lookDir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.fixedDeltaTime);
+            float rotationAmount = inputH * rotationSpeed * Time.fixedDeltaTime;
+            transform.Rotate(0f, rotationAmount, 0f);
         }
     }
 
-    void CheckGround()
-    {
-        if (groundCheck == null)
-        {
-            isGrounded = true;
-            return;
-        }
-
-        isGrounded = Physics.CheckSphere(groundCheck.position, groundCheckRadius, groundLayer);
-    }
-
-    void Jump()
+    private void Jump()
     {
         Vector3 vel = rb.velocity;
         vel.y = 0f;
         rb.velocity = vel;
-        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         animator.SetTrigger("Jump");
     }
 
-    void Kick()
+    private void Kick()
     {
         animator.SetTrigger("Kick");
-
-        // Detectar balones cerca del punto de patada
-        Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius);
-        foreach (Collider col in hits)
-        {
-            Ball ball = col.GetComponent<Ball>();
-            if (ball != null)
-            {
-                Vector3 dir = (col.transform.position - transform.position).normalized;
-                ball.Kick(dir, kickForce);
-            }
-        }
     }
 
-    void OnDrawGizmosSelected()
+    private void OnDrawGizmosSelected()
     {
-        if (kickPoint != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(kickPoint.position, kickRadius);
-        }
-
         if (groundCheck != null)
         {
-            Gizmos.color = Color.green;
+            Gizmos.color = Color.yellow;
             Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
         }
     }
