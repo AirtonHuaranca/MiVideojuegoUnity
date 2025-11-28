@@ -7,40 +7,34 @@ public class BallController : MonoBehaviour
     public float baseSpeed = 3f;
     public float changeTargetInterval = 3f;
 
-    [Header("Límites del campo (X y Z)")]
-    public Vector2 fieldXLimits = new Vector2(-20f, 20f);
-    public Vector2 fieldZLimits = new Vector2(-30f, 30f);
+    [Header("Área del campo")]
+    [HideInInspector]              // lo asigna el GameManager por código
+    public BoxCollider fieldArea;   // CampoArea
 
     private Rigidbody rb;
     private Vector3 currentTarget;
     private float timer;
     private float speedMultiplier = 1f;
-    private bool isActive = true;        // si está en el campo o ya fue pateado
+    private bool isActive = true;
 
-    private GameManager gameManager;     // referencia al GameManager
+    private GameManager gameManager;
 
-    // 👉 altura fija donde "vive" el balón mientras se mueve en el campo
-    private float baseY = 0f;           
-
-    // opcional: seguimos recibiendo minY por si luego quieres usarlo
-    private float minY = 0f;             
+    private float baseY;            // altura fija mientras está en el campo
+    private const float edgeMargin = 0.2f;  // margen para que no llegue justo al borde
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
 
-        // Mientras el balón está en el campo NO queremos que la gravedad lo hunda
+        // Mientras está en el campo: sin gravedad, solo desliza en X/Z
         rb.useGravity = false;
-
-        // Evitar vuelcos raros mientras se mueve
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
     }
 
     private void Start()
     {
-        // Guardamos la altura inicial como referencia
+        // Guardamos la altura inicial donde fue instanciado
         baseY = transform.position.y;
-
         PickNewTarget();
     }
 
@@ -64,52 +58,59 @@ public class BallController : MonoBehaviour
         ClampToField();
     }
 
-    // ✅ Llamado por el GameManager al instanciar
-    public void Init(GameManager manager, Vector2 xLimits, Vector2 zLimits, float minHeight)
+    // ✅ Esto lo llama el GameManager al crear el balón
+    public void Init(GameManager manager, BoxCollider area)
     {
         gameManager = manager;
-        fieldXLimits = xLimits;
-        fieldZLimits = zLimits;
-        minY = minHeight;   // por si lo necesitas luego, ahora usamos baseY
+        fieldArea = area;
     }
 
     private void PickNewTarget()
     {
-        float x = Random.Range(fieldXLimits.x, fieldXLimits.y);
-        float z = Random.Range(fieldZLimits.x, fieldZLimits.y);
+        if (fieldArea == null) return;
+
+        Bounds b = fieldArea.bounds;
+
+        float x = Random.Range(b.min.x + edgeMargin, b.max.x - edgeMargin);
+        float z = Random.Range(b.min.z + edgeMargin, b.max.z - edgeMargin);
+
         currentTarget = new Vector3(x, baseY, z);
     }
 
     private void MoveTowardsTarget()
     {
+        if (fieldArea == null) return;
+
         Vector3 dir = (currentTarget - transform.position).normalized;
         float speed = baseSpeed * speedMultiplier;
 
-        // 👇 NO tocamos la Y del Rigidbody, la dejamos en 0 para que no vaya hacia abajo
+        // solo movemos en X/Z, Y = 0 para que no se hunda
         Vector3 velocity = new Vector3(dir.x * speed, 0f, dir.z * speed);
         rb.velocity = velocity;
     }
 
     private void ClampToField()
     {
+        if (fieldArea == null) return;
+
+        Bounds b = fieldArea.bounds;
         Vector3 pos = transform.position;
 
-        pos.x = Mathf.Clamp(pos.x, fieldXLimits.x, fieldXLimits.y);
-        pos.z = Mathf.Clamp(pos.z, fieldZLimits.x, fieldZLimits.y);
+        pos.x = Mathf.Clamp(pos.x, b.min.x + edgeMargin, b.max.x - edgeMargin);
+        pos.z = Mathf.Clamp(pos.z, b.min.z + edgeMargin, b.max.z - edgeMargin);
 
-        // 🔥 Y SIEMPRE FIJA: no dejamos que se hunda ni suba
+        // Y fija, no dejamos que se hunda ni suba
         pos.y = baseY;
 
         transform.position = pos;
     }
 
-    // 👉 El GameManager utilizará esto para subir la velocidad a los que quedan
     public void SetSpeedMultiplier(float multiplier)
     {
         speedMultiplier = multiplier;
     }
 
-    // 🔥 Esta función se llama cuando el jugador patea el balón
+    // 🔥 Cuando el jugador patea el balón
     public void OnKicked(Vector3 kickDirection, float kickForce)
     {
         if (!isActive) return;
@@ -119,20 +120,16 @@ public class BallController : MonoBehaviour
         rb.useGravity = true;
         rb.constraints = RigidbodyConstraints.None;
 
-        // deja de moverse por IA en X/Z
         rb.velocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
-        // lo hacemos volar
         rb.AddForce(kickDirection.normalized * kickForce, ForceMode.Impulse);
 
-        // avisar al GameManager que este balón fue pateado
         if (gameManager != null)
         {
             gameManager.RegisterBallKicked(this);
         }
 
-        // destruir después de 2 segundos (tiempo de vuelo)
         Destroy(gameObject, 2f);
     }
 }

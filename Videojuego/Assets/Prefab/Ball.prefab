@@ -148,5 +148,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   baseSpeed: 3
   changeTargetInterval: 4
-  fieldXLimits: {x: -2, y: 2}
-  fieldZLimits: {x: -3, y: 3}
+  fieldArea: {fileID: 0}

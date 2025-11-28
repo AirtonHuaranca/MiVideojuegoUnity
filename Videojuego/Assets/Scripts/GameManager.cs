@@ -9,7 +9,7 @@ public class GameManager : MonoBehaviour
     public int numberOfBalls = 10;
 
     [Header("Área del campo (BoxCollider)")]
-    public BoxCollider fieldArea;   // 👉 arrastra aquí el objeto CampoArea
+    public BoxCollider fieldArea;   // arrastra aquí CampoArea
 
     [Header("Velocidad")]
     public float extraSpeedPerMissingBall = 0.3f;
@@ -20,11 +20,8 @@ public class GameManager : MonoBehaviour
     private List<BallController> balls = new List<BallController>();
     private int kickedCount = 0;
 
-    // límites calculados automáticamente
-    private Vector2 fieldXLimits;
-    private Vector2 fieldZLimits;
     private float spawnY;
-    private float fieldMinY;   // piso real del área
+    private Bounds fieldBounds;
 
     private void Start()
     {
@@ -34,18 +31,12 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // 1️⃣ Calcular límites a partir del BoxCollider
-        Bounds b = fieldArea.bounds;
-        fieldXLimits = new Vector2(b.min.x, b.max.x);
-        fieldZLimits = new Vector2(b.min.z, b.max.z);
+        // Guardamos los bounds del área una sola vez
+        fieldBounds = fieldArea.bounds;
 
-        // piso del área
-        fieldMinY = b.min.y;
+        // altura un poco encima del piso del área
+        spawnY = fieldBounds.min.y + 0.5f;
 
-        // 👉 altura donde aparecerán los balones (un poco encima del piso)
-        spawnY = fieldMinY + 0.5f;
-
-        // 2️⃣ Crear los balones dentro de esa área
         SpawnBalls();
         UpdateBallsSpeed();
     }
@@ -54,15 +45,15 @@ public class GameManager : MonoBehaviour
     {
         for (int i = 0; i < numberOfBalls; i++)
         {
-            float x = Random.Range(fieldXLimits.x, fieldXLimits.y);
-            float z = Random.Range(fieldZLimits.x, fieldZLimits.y);
+            float x = Random.Range(fieldBounds.min.x, fieldBounds.max.x);
+            float z = Random.Range(fieldBounds.min.z, fieldBounds.max.z);
 
             Vector3 spawnPos = new Vector3(x, spawnY, z);
 
             BallController newBall = Instantiate(ballPrefab, spawnPos, Quaternion.identity);
 
-            // ⬇️ ahora le pasamos también la altura mínima del campo
-            newBall.Init(this, fieldXLimits, fieldZLimits, fieldMinY);
+            // 👇 le pasamos el GameManager y el área del campo
+            newBall.Init(this, fieldArea);
 
             balls.Add(newBall);
         }
