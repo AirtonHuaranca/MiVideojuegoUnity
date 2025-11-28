@@ -13,10 +13,12 @@ public class PlayerController : MonoBehaviour
     public float groundCheckRadius = 0.25f;
     public LayerMask groundLayer;
 
-    [Header("Patear")]
-    public Transform kickPoint;       // Asignar en el inspector (un Empty en el pie)
-    public float kickRadius = 1.2f;   // Radio de la esfera de impacto
-    public float kickForce = 12f;     // Fuerza que se aplica al balón
+[Header("Patear")]
+    public Transform kickPoint;      // un Empty en el pie
+    public float kickRadius = 1.2f;  // radio de detección
+    public float kickForce = 12f;    // fuerza de la patada
+    public LayerMask ballLayer;      // capa de los balones
+
 
     [Header("Animación")]
     public Animator animator;
@@ -117,45 +119,26 @@ public class PlayerController : MonoBehaviour
 
     private void Kick()
     {
+        // activar animación si tienes
         if (animator != null)
-            animator.SetTrigger("Kick");
-
-        if (kickPoint == null)
         {
-            Debug.LogWarning("Kick: kickPoint NO asignado en el inspector.");
-            return;
+            animator.SetTrigger("Kick");
         }
 
-        // Buscar balones cerca del pie
-        Collider[] hits = Physics.OverlapSphere(
-            kickPoint.position,
-            kickRadius
-        );
-
-        Debug.Log("Kick: colliders detectados = " + hits.Length);
+        // detectar balones cerca del pie
+        Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius, ballLayer);
 
         foreach (Collider hit in hits)
         {
-            if (!hit.CompareTag("Ball"))
-                continue;
-
-            Rigidbody ballRb = hit.attachedRigidbody;
-            if (ballRb == null)
-                continue;
-
-            // Dirección desde el pie hacia el balón
-            Vector3 dir = (hit.transform.position - kickPoint.position).normalized;
-            dir.y = 0.2f; // un poco hacia arriba
-
-            ballRb.AddForce(dir * kickForce, ForceMode.Impulse);
-
-            if (GameManager.Instance != null)
+            BallController ball = hit.GetComponent<BallController>();
+            if (ball != null)
             {
-                GameManager.Instance.OnBallKicked();
-            }
+                // dirección de la patada: hacia el balón + un poco hacia arriba
+                Vector3 dir = (hit.transform.position - kickPoint.position).normalized + Vector3.up * 0.5f;
 
-            // Que desaparezca del campo tras la patada
-            Destroy(hit.gameObject, 0.5f);
+                ball.OnKicked(dir, kickForce);
+                break; // solo pateamos un balón
+            }
         }
     }
 

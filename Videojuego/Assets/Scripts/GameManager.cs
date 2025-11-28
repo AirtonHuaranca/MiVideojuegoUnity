@@ -1,74 +1,97 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager Instance;
-
     [Header("Balones")]
-    public int totalBalls = 10;        // cantidad total de balones en el campo
-    [HideInInspector] public int ballsRemaining;
-    [HideInInspector] public int ballsKicked = 0;
+    public BallController ballPrefab;
+    public int numberOfBalls = 10;
 
-    [Header("Dificultad")]
-    [Tooltip("Qué tanto aumenta la velocidad cuando quedan pocos balones")]
-    public float difficultyFactor = 2f;
+    [Header("Área del campo (BoxCollider)")]
+    public BoxCollider fieldArea;   // 👉 arrastra aquí el objeto CampoArea
 
-    private void Awake()
+    [Header("Velocidad")]
+    public float extraSpeedPerMissingBall = 0.3f;
+
+    [Header("Escena siguiente")]
+    public string nextSceneName = "Nivel2";
+
+    private List<BallController> balls = new List<BallController>();
+    private int kickedCount = 0;
+
+    // límites calculados automáticamente
+    private Vector2 fieldXLimits;
+    private Vector2 fieldZLimits;
+    private float spawnY;
+    private float fieldMinY;   // piso real del área
+
+    private void Start()
     {
-        // Patrón Singleton básico
-        if (Instance == null)
+        if (fieldArea == null)
         {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
+            Debug.LogError("No se asignó el fieldArea (BoxCollider) en el GameManager.");
             return;
         }
 
-        ballsRemaining = totalBalls;
+        // 1️⃣ Calcular límites a partir del BoxCollider
+        Bounds b = fieldArea.bounds;
+        fieldXLimits = new Vector2(b.min.x, b.max.x);
+        fieldZLimits = new Vector2(b.min.z, b.max.z);
+
+        // piso del área
+        fieldMinY = b.min.y;
+
+        // 👉 altura donde aparecerán los balones (un poco encima del piso)
+        spawnY = fieldMinY + 0.5f;
+
+        // 2️⃣ Crear los balones dentro de esa área
+        SpawnBalls();
+        UpdateBallsSpeed();
     }
 
-    // Llamado por cada balón cuando es pateado
-    public void OnBallKicked()
+    private void SpawnBalls()
     {
-        ballsKicked++;
-        ballsRemaining = Mathf.Max(0, ballsRemaining - 1);
+        for (int i = 0; i < numberOfBalls; i++)
+        {
+            float x = Random.Range(fieldXLimits.x, fieldXLimits.y);
+            float z = Random.Range(fieldZLimits.x, fieldZLimits.y);
 
-        Debug.Log($"Balones pateados: {ballsKicked}, Balones restantes: {ballsRemaining}");
+            Vector3 spawnPos = new Vector3(x, spawnY, z);
 
-        // Actualizar la velocidad de los balones
+            BallController newBall = Instantiate(ballPrefab, spawnPos, Quaternion.identity);
+
+            // ⬇️ ahora le pasamos también la altura mínima del campo
+            newBall.Init(this, fieldXLimits, fieldZLimits, fieldMinY);
+
+            balls.Add(newBall);
+        }
+    }
+
+    public void RegisterBallKicked(BallController ball)
+    {
+        kickedCount++;
+        balls.Remove(ball);
+
         UpdateBallsSpeed();
 
-        // Si ya pateó 10 balones → pasar al siguiente nivel
-        if (ballsKicked >= 10)
+        Debug.Log($"Balones pateados: {kickedCount}/{numberOfBalls}");
+
+        if (kickedCount >= 10)
         {
-            LoadNextLevel();
+            SceneManager.LoadScene(nextSceneName);
         }
     }
 
     private void UpdateBallsSpeed()
     {
-        if (totalBalls <= 0) return;
+        int pateados = kickedCount;
+        float speedFactor = 1f + pateados * extraSpeedPerMissingBall;
 
-        // ratio = 1 cuando están todos, 0 cuando no queda ninguno
-        float ratio = (float)ballsRemaining / totalBalls;
-
-        // Mientras menos balones → mayor multiplicador
-        float speedMultiplier = 1f + difficultyFactor * (1f - ratio);
-
-        BallController[] balls = FindObjectsOfType<BallController>();
-        foreach (var ball in balls)
+        foreach (var b in balls)
         {
-            ball.SetSpeedMultiplier(speedMultiplier);
+            if (b != null)
+                b.SetSpeedMultiplier(speedFactor);
         }
-    }
-
-    private void LoadNextLevel()
-    {
-        Debug.Log("¡Completado! Cargando Nivel2...");
-        // Asegúrate que la escena "Nivel2" exista en Build Settings
-        SceneManager.LoadScene("Nivel2");
     }
 }
