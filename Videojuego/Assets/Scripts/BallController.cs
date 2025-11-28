@@ -11,15 +11,20 @@ public class BallController : MonoBehaviour
     [HideInInspector]              // lo asigna el GameManager por código
     public BoxCollider fieldArea;   // CampoArea
 
+    [Header("Desaparición")]
+    public float disappearDelay = 2f;   // tiempo antes de destruir el balón tras la patada
+
     private Rigidbody rb;
     private Vector3 currentTarget;
     private float timer;
     private float speedMultiplier = 1f;
-    private bool isActive = true;
+
+    private bool isActive = true;       // se mueve en el campo
+    private bool hasBeenKicked = false; // ya fue pateado (para no contar 2 veces)
 
     private GameManager gameManager;
 
-    private float baseY;            // altura fija mientras está en el campo
+    private float baseY;                // altura fija mientras está en el campo
     private const float edgeMargin = 0.2f;  // margen para que no llegue justo al borde
 
     private void Awake()
@@ -113,23 +118,31 @@ public class BallController : MonoBehaviour
     // 🔥 Cuando el jugador patea el balón
     public void OnKicked(Vector3 kickDirection, float kickForce)
     {
-        if (!isActive) return;
+        // si ya fue pateado, no hacemos nada
+        if (hasBeenKicked) return;
+        hasBeenKicked = true;
+
+        // dejar de moverse dentro del campo
         isActive = false;
 
         // Ahora sí queremos física real
         rb.useGravity = true;
         rb.constraints = RigidbodyConstraints.None;
 
+        // limpiamos velocidades antes de aplicar la fuerza
         rb.velocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
+        // aplicar la patada
         rb.AddForce(kickDirection.normalized * kickForce, ForceMode.Impulse);
 
+        // avisar al GameManager
         if (gameManager != null)
         {
             gameManager.RegisterBallKicked(this);
         }
 
-        Destroy(gameObject, 2f);
+        // destruir después de un tiempo (se ve cómo sale volando y luego desaparece)
+        Destroy(gameObject, disappearDelay);
     }
 }

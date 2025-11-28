@@ -5,7 +5,7 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Movimiento")]
     public float moveSpeed = 6f;          // Adelante / atrás
-    public float rotationSpeed = 220f;    // Grados por segundo (más rápido)
+    public float rotationSpeed = 220f;    // Grados por segundo
 
     [Header("Salto")]
     public float jumpForce = 7f;
@@ -13,12 +13,11 @@ public class PlayerController : MonoBehaviour
     public float groundCheckRadius = 0.25f;
     public LayerMask groundLayer;
 
-[Header("Patear")]
-    public Transform kickPoint;      // un Empty en el pie
+    [Header("Patear")]
+    public Transform kickPoint;      // Empty en el pie
     public float kickRadius = 1.2f;  // radio de detección
     public float kickForce = 12f;    // fuerza de la patada
     public LayerMask ballLayer;      // capa de los balones
-
 
     [Header("Animación")]
     public Animator animator;
@@ -45,7 +44,7 @@ public class PlayerController : MonoBehaviour
         inputV = Input.GetAxisRaw("Vertical");   // W (1) / S (-1)
         inputH = Input.GetAxisRaw("Horizontal"); // A (-1) / D (1)
 
-        // 2) CHEQUEAR SUELO (si no hay groundCheck, asumimos grounded)
+        // 2) CHEQUEAR SUELO
         if (groundCheck != null)
         {
             isGrounded = Physics.CheckSphere(
@@ -59,30 +58,31 @@ public class PlayerController : MonoBehaviour
             isGrounded = true;
         }
 
+        // Animaciones
         if (animator != null)
         {
             animator.SetBool("IsGrounded", isGrounded);
 
-            // 3) BLEND TREE: MoveZ (adelante/atrás)
+            // BLEND TREE: MoveZ (adelante/atrás)
             float targetMoveZ = inputV;
             float currentMoveZ = animator.GetFloat("MoveZ");
             float smoothMoveZ = Mathf.Lerp(currentMoveZ, targetMoveZ, Time.deltaTime * 10f);
             animator.SetFloat("MoveZ", smoothMoveZ);
 
-            // 4) BLEND TREE: Turn (giro en el sitio)
+            // BLEND TREE: Turn (giro en el sitio)
             float targetTurn = inputH;  // A = -1, D = 1
             float currentTurn = animator.GetFloat("Turn");
             float smoothTurn = Mathf.Lerp(currentTurn, targetTurn, Time.deltaTime * 10f);
             animator.SetFloat("Turn", smoothTurn);
         }
 
-        // 5) SALTO (Space) – solo si está en el piso
+        // 3) SALTO (Space) – solo si está en el piso
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
         {
             Jump();
         }
 
-        // 6) PATEAR (K)
+        // 4) PATEAR (K)
         if (Input.GetKeyDown(KeyCode.K))
         {
             Kick();
@@ -119,13 +119,15 @@ public class PlayerController : MonoBehaviour
 
     private void Kick()
     {
-        // activar animación si tienes
+        // Animación
         if (animator != null)
         {
             animator.SetTrigger("Kick");
         }
 
-        // detectar balones cerca del pie
+        // Detectar balones cerca del pie
+        if (kickPoint == null) return;
+
         Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius, ballLayer);
 
         foreach (Collider hit in hits)
@@ -133,8 +135,11 @@ public class PlayerController : MonoBehaviour
             BallController ball = hit.GetComponent<BallController>();
             if (ball != null)
             {
-                // dirección de la patada: hacia el balón + un poco hacia arriba
-                Vector3 dir = (hit.transform.position - kickPoint.position).normalized + Vector3.up * 0.5f;
+                // dirección desde el pie hacia el balón
+                Vector3 dir = (hit.transform.position - kickPoint.position).normalized;
+
+                // Levantamos un poco la patada para que la pelota suba
+                dir.y = 0.4f;
 
                 ball.OnKicked(dir, kickForce);
                 break; // solo pateamos un balón

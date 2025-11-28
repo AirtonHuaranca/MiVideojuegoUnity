@@ -52,15 +52,20 @@ public class GameManager : MonoBehaviour
 
             BallController newBall = Instantiate(ballPrefab, spawnPos, Quaternion.identity);
 
-            // 👇 le pasamos el GameManager y el área del campo
+            // le pasamos el GameManager y el área del campo
             newBall.Init(this, fieldArea);
 
             balls.Add(newBall);
         }
     }
 
+    // 👇 Llamada desde BallController cuando se patea la pelota
     public void RegisterBallKicked(BallController ball)
     {
+        // por seguridad, evitar doble conteo
+        if (!balls.Contains(ball))
+            return;
+
         kickedCount++;
         balls.Remove(ball);
 
@@ -68,7 +73,8 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"Balones pateados: {kickedCount}/{numberOfBalls}");
 
-        if (kickedCount >= 10)
+        // cuando se patean todos los balones → siguiente escena
+        if (kickedCount >= numberOfBalls)
         {
             SceneManager.LoadScene(nextSceneName);
         }
@@ -76,8 +82,7 @@ public class GameManager : MonoBehaviour
 
     private void UpdateBallsSpeed()
     {
-        int pateados = kickedCount;
-        float speedFactor = 1f + pateados * extraSpeedPerMissingBall;
+        float speedFactor = 1f + kickedCount * extraSpeedPerMissingBall;
 
         foreach (var b in balls)
         {
@@ -85,4 +90,7 @@ public class GameManager : MonoBehaviour
                 b.SetSpeedMultiplier(speedFactor);
         }
     }
+
+    // (opcional) por si quieres saber cuántos faltan
+    public int RemainingBalls => numberOfBalls - kickedCount;
 }
