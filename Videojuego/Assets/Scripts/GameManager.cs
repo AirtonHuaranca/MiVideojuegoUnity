@@ -1,70 +1,74 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
     [Header("Balones")]
-    public int ballsToGoal = 10;
-    public float extraSpeedPerMissingBall = 0.5f;
+    public int totalBalls = 10;        // cantidad total de balones en el campo
+    [HideInInspector] public int ballsRemaining;
+    [HideInInspector] public int ballsKicked = 0;
 
-    [Header("UI")]
-    public Text ballsText;
+    [Header("Dificultad")]
+    [Tooltip("Qué tanto aumenta la velocidad cuando quedan pocos balones")]
+    public float difficultyFactor = 2f;
 
-    private int totalBalls = 0;
-    private int ballsKicked = 0;
-
-    void Awake()
+    private void Awake()
     {
+        // Patrón Singleton básico
         if (Instance == null)
+        {
             Instance = this;
+        }
         else
         {
             Destroy(gameObject);
             return;
         }
+
+        ballsRemaining = totalBalls;
     }
 
-    public void RegisterBall(Ball ball)
-    {
-        totalBalls++;
-        UpdateUI();
-    }
-
-    public void BallKicked(Ball ball)
+    // Llamado por cada balón cuando es pateado
+    public void OnBallKicked()
     {
         ballsKicked++;
-        UpdateUI();
+        ballsRemaining = Mathf.Max(0, ballsRemaining - 1);
 
-        if (ballsKicked >= ballsToGoal)
+        Debug.Log($"Balones pateados: {ballsKicked}, Balones restantes: {ballsRemaining}");
+
+        // Actualizar la velocidad de los balones
+        UpdateBallsSpeed();
+
+        // Si ya pateó 10 balones → pasar al siguiente nivel
+        if (ballsKicked >= 10)
         {
-            NextLevel();
+            LoadNextLevel();
         }
     }
 
-    void UpdateUI()
+    private void UpdateBallsSpeed()
     {
-        if (ballsText != null)
+        if (totalBalls <= 0) return;
+
+        // ratio = 1 cuando están todos, 0 cuando no queda ninguno
+        float ratio = (float)ballsRemaining / totalBalls;
+
+        // Mientras menos balones → mayor multiplicador
+        float speedMultiplier = 1f + difficultyFactor * (1f - ratio);
+
+        BallController[] balls = FindObjectsOfType<BallController>();
+        foreach (var ball in balls)
         {
-            ballsText.text = "Balones: " + ballsKicked + " / " + ballsToGoal;
+            ball.SetSpeedMultiplier(speedMultiplier);
         }
     }
 
-    public float GetCurrentBallSpeed(float baseSpeed)
+    private void LoadNextLevel()
     {
-        // Mientras menos balones queden, más rápido se mueven
-        int ballsRemaining = Mathf.Max(totalBalls - ballsKicked, 0);
-        int missing = totalBalls - ballsRemaining; // los que ya pateaste
-
-        float extra = missing * extraSpeedPerMissingBall;
-        return baseSpeed + extra;
-    }
-
-    void NextLevel()
-    {
-        // Cambia "NextScene" por el nombre de tu siguiente escena
-        SceneManager.LoadScene("NextScene");
+        Debug.Log("¡Completado! Cargando Nivel2...");
+        // Asegúrate que la escena "Nivel2" exista en Build Settings
+        SceneManager.LoadScene("Nivel2");
     }
 }
