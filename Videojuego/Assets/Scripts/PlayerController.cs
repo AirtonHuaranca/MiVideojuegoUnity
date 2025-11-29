@@ -15,9 +15,12 @@ public class PlayerController : MonoBehaviour
 
     [Header("Patear")]
     public Transform kickPoint;      // Empty en el pie
-    public float kickRadius = 1.2f;  // radio de detección
-    public float kickForce = 12f;    // fuerza de la patada
+    public float kickRadius = 1.5f;  // radio de detección (un poco más grande)
+    public float kickForce = 20f;    // fuerza de la patada
     public LayerMask ballLayer;      // capa de los balones
+
+    // ⏱ Ventana de tiempo para detectar el balón
+    public float kickDetectionWindow = 1f;
 
     [Header("Animación")]
     public Animator animator;
@@ -26,6 +29,10 @@ public class PlayerController : MonoBehaviour
     private float inputV;  // W / S
     private float inputH;  // A / D
     private bool isGrounded;
+
+    // control de la ventana de patada
+    private bool isKickingWindow = false;
+    private float kickTimer = 0f;
 
     private void Awake()
     {
@@ -76,7 +83,7 @@ public class PlayerController : MonoBehaviour
             animator.SetFloat("Turn", smoothTurn);
         }
 
-        // 3) SALTO (Space) – solo si está en el piso
+        // 3) SALTO (Space)
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
         {
             Jump();
@@ -85,7 +92,22 @@ public class PlayerController : MonoBehaviour
         // 4) PATEAR (K)
         if (Input.GetKeyDown(KeyCode.K))
         {
-            Kick();
+            StartKick();   // arranca animación + ventana de detección
+        }
+
+        // 5) Mientras la ventana de patada está activa, seguimos buscando balones
+        if (isKickingWindow)
+        {
+            kickTimer += Time.deltaTime;
+
+            // Intentar detectar y patear un balón
+            bool hitSomething = TryKickHit();
+
+            // Si ya pateamos algo o se acabó el tiempo, cerramos ventana
+            if (hitSomething || kickTimer >= kickDetectionWindow)
+            {
+                isKickingWindow = false;
+            }
         }
     }
 
@@ -117,34 +139,51 @@ public class PlayerController : MonoBehaviour
             animator.SetTrigger("Jump");
     }
 
-    private void Kick()
+    // 👉 Se llama cuando presionas K
+    private void StartKick()
     {
-        // Animación
         if (animator != null)
         {
             animator.SetTrigger("Kick");
         }
 
-        // Detectar balones cerca del pie
-        if (kickPoint == null) return;
+        // activar ventana de detección
+        isKickingWindow = true;
+        kickTimer = 0f;
 
-        Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius);
+        Debug.Log("K presionada, ventana de detección abierta...");
+    }
+
+    // 👉 Se llama cada frame mientras la ventana está activa
+    private bool TryKickHit()
+    {
+        if (kickPoint == null)
+        {
+            Debug.LogWarning("KickPoint no asignado");
+            return false;
+        }
+
+        // puedes dejar con ballLayer o, si aún estás probando, sin filtro de layer:
+        Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius, ballLayer);
+        // Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius); // <- para pruebas
+
+        Debug.Log("Chequeando balones... detectados: " + hits.Length);
 
         foreach (Collider hit in hits)
         {
             BallController ball = hit.GetComponent<BallController>();
             if (ball != null)
             {
-                // dirección desde el pie hacia el balón
                 Vector3 dir = (hit.transform.position - kickPoint.position).normalized;
-
-                // Levantamos un poco la patada para que la pelota suba
                 dir.y = 0.4f;
 
                 ball.OnKicked(dir, kickForce);
-                break; // solo pateamos un balón
+                Debug.Log("Balón pateado!");
+                return true;
             }
         }
+
+        return false;
     }
 
     private void OnDrawGizmosSelected()
