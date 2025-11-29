@@ -34,6 +34,11 @@ public class PlayerController : MonoBehaviour
     private bool isKickingWindow = false;
     private float kickTimer = 0f;
 
+    // 👇 NUEVO: bloqueo de movimiento mientras patea
+    public float kickLockTime = 0.6f;   // ponlo parecido a la duración de tu animación
+    private bool isKicking = false;
+    private float kickLockTimer = 0f;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -71,26 +76,26 @@ public class PlayerController : MonoBehaviour
             animator.SetBool("IsGrounded", isGrounded);
 
             // BLEND TREE: MoveZ (adelante/atrás)
-            float targetMoveZ = inputV;
+            float targetMoveZ = isKicking ? 0f : inputV;   // 👈 quieto mientras patea
             float currentMoveZ = animator.GetFloat("MoveZ");
             float smoothMoveZ = Mathf.Lerp(currentMoveZ, targetMoveZ, Time.deltaTime * 10f);
             animator.SetFloat("MoveZ", smoothMoveZ);
 
             // BLEND TREE: Turn (giro en el sitio)
-            float targetTurn = inputH;  // A = -1, D = 1
+            float targetTurn = isKicking ? 0f : inputH;    // 👈 opcional: sin giro mientras patea
             float currentTurn = animator.GetFloat("Turn");
             float smoothTurn = Mathf.Lerp(currentTurn, targetTurn, Time.deltaTime * 10f);
             animator.SetFloat("Turn", smoothTurn);
         }
 
         // 3) SALTO (Space)
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !isKicking)
         {
             Jump();
         }
 
         // 4) PATEAR (K)
-        if (Input.GetKeyDown(KeyCode.K))
+        if (Input.GetKeyDown(KeyCode.K) && !isKicking)
         {
             StartKick();   // arranca animación + ventana de detección
         }
@@ -103,26 +108,48 @@ public class PlayerController : MonoBehaviour
             // Intentar detectar y patear un balón
             bool hitSomething = TryKickHit();
 
-            // Si ya pateamos algo o se acabó el tiempo, cerramos ventana
+            // Si ya pateamos algo o se acabó el tiempo, cerramos la ventana
             if (hitSomething || kickTimer >= kickDetectionWindow)
             {
                 isKickingWindow = false;
+            }
+        }
+
+        // 6) Contar el tiempo que dura bloqueado por la patada
+        if (isKicking)
+        {
+            kickLockTimer += Time.deltaTime;
+            if (kickLockTimer >= kickLockTime)
+            {
+                isKicking = false;          // 👈 aquí vuelve a poder moverse
+                // Debug.Log("Fin de bloqueo de patada, puede moverse");
             }
         }
     }
 
     private void FixedUpdate()
     {
-        // MOVIMIENTO ADELANTE / ATRÁS
-        Vector3 moveDir = transform.forward * inputV * moveSpeed;
-        Vector3 velocity = new Vector3(moveDir.x, rb.velocity.y, moveDir.z);
-        rb.velocity = velocity;
-
-        // ROTACIÓN EN EL SITIO (A / D)
-        if (Mathf.Abs(inputH) > 0.01f)
+        if (isKicking)
         {
-            float rotationAmount = inputH * rotationSpeed * Time.fixedDeltaTime;
-            transform.Rotate(0f, rotationAmount, 0f);
+            // 👇 mientras está pateando, no avanzamos ni giramos
+            Vector3 vel = rb.velocity;
+            vel.x = 0f;
+            vel.z = 0f;
+            rb.velocity = vel;
+        }
+        else
+        {
+            // MOVIMIENTO ADELANTE / ATRÁS
+            Vector3 moveDir = transform.forward * inputV * moveSpeed;
+            Vector3 velocity = new Vector3(moveDir.x, rb.velocity.y, moveDir.z);
+            rb.velocity = velocity;
+
+            // ROTACIÓN EN EL SITIO (A / D)
+            if (Mathf.Abs(inputH) > 0.01f)
+            {
+                float rotationAmount = inputH * rotationSpeed * Time.fixedDeltaTime;
+                transform.Rotate(0f, rotationAmount, 0f);
+            }
         }
     }
 
@@ -151,7 +178,17 @@ public class PlayerController : MonoBehaviour
         isKickingWindow = true;
         kickTimer = 0f;
 
-        Debug.Log("K presionada, ventana de detección abierta...");
+        // 👇 bloquear movimiento mientras dure la patada
+        isKicking = true;
+        kickLockTimer = 0f;
+
+        // limpiar velocidad horizontal para que no se deslice
+        Vector3 vel = rb.velocity;
+        vel.x = 0f;
+        vel.z = 0f;
+        rb.velocity = vel;
+
+        Debug.Log("K presionada, ventana de detección abierta y movimiento bloqueado...");
     }
 
     // 👉 Se llama cada frame mientras la ventana está activa
@@ -163,7 +200,6 @@ public class PlayerController : MonoBehaviour
             return false;
         }
 
-        // puedes dejar con ballLayer o, si aún estás probando, sin filtro de layer:
         Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius, ballLayer);
         // Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius); // <- para pruebas
 
