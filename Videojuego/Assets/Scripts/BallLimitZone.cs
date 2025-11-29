@@ -33,7 +33,7 @@ public class BallLimitZone : MonoBehaviour
         pos.z = Mathf.Clamp(pos.z, minZ, maxZ);
 
         // Ajustamos la altura de la pelota (Y) para que no quede enterrada
-        pos.y = Mathf.Max(pos.y, bounds.min.y + 0.5f);
+        pos.y = Mathf.Max(pos.y, bounds.min.y + 0.1f);
 
         // 4. Colocamos de nuevo la pelota dentro del área
         other.transform.position = pos;
