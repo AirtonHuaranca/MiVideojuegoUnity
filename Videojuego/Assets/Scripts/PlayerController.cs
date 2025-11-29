@@ -128,7 +128,7 @@ public class PlayerController : MonoBehaviour
         // Detectar balones cerca del pie
         if (kickPoint == null) return;
 
-        Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius, ballLayer);
+        Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius);
 
         foreach (Collider hit in hits)
         {
