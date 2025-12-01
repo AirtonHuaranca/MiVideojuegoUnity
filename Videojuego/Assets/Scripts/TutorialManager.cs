@@ -5,56 +5,43 @@ using UnityEngine.SceneManagement;
 public class TutorialManager : MonoBehaviour
 {
     [Header("Paneles del tutorial")]
-    public GameObject panelWelcome;     // Panel de bienvenida
-    public GameObject panelLinea1;      // Panel al cruzar línea 1
-    public GameObject panelLinea2;      // Panel al cruzar línea 2
+    public GameObject panelWelcome;
+    public GameObject panelLinea1;
+    public GameObject panelLinea2;
 
     [Header("Contador de balones")]
-    public GameObject ballCounterRoot;  // Panel/objeto que contiene el contador
-    public TMP_Text ballCounterText;    // Texto TMP que muestra "Balones: X / Y"
-    public int totalBalls = 10;         // Número total de balones del nivel
+    public GameObject ballCounterRoot;
+    public TMP_Text ballCounterText;
+    public int totalBalls = 10;
 
     [Header("Panel Final")]
-public GameObject panelFinal;         // <-- Panel final al terminar
-public string nextSceneName = "Nivel3";  // <-- Cambia esto por tu escena real
-
+    public GameObject panelFinal;
+    public string nextSceneName = "Nivel3";
 
     [Header("Sistemas")]
-    public LockMouse mouseLocker;       // Referencia al LockMouse
+    public LockMouse mouseLocker;
 
-    private int kickedCount = 0;        // Balones pateados
+    private int kickedCount = 0;
 
     private void Start()
     {
-        // Asegurar estado inicial
         kickedCount = 0;
         UpdateBallCounter();
 
-        // Ocultar contador al inicio
         if (ballCounterRoot != null)
             ballCounterRoot.SetActive(false);
 
-        // Ocultar paneles de líneas al inicio
         if (panelLinea1 != null) panelLinea1.SetActive(false);
         if (panelLinea2 != null) panelLinea2.SetActive(false);
 
-        // Mostrar panel de bienvenida y pausar el juego
         if (panelWelcome != null)
-        {
             panelWelcome.SetActive(true);
-        }
-        else
-        {
-            Debug.LogError("❌ PanelWelcome NO asignado en TutorialManager");
-        }
 
-        if (panelFinal != null)panelFinal.SetActive(false);
-
+        if (panelFinal != null)
+            panelFinal.SetActive(false);
 
         PauseGameAndUnlockMouse();
     }
-
-    // ===================== CONTROL DE JUEGO / MOUSE =====================
 
     private void PauseGameAndUnlockMouse()
     {
@@ -70,9 +57,6 @@ public string nextSceneName = "Nivel3";  // <-- Cambia esto por tu escena real
             mouseLocker.Lock();
     }
 
-    // ======================== PANEL BIENVENIDA =========================
-
-    // Asignar al botón del PanelWelcome
     public void OnWelcomeButton()
     {
         if (panelWelcome != null)
@@ -80,8 +64,6 @@ public string nextSceneName = "Nivel3";  // <-- Cambia esto por tu escena real
 
         ResumeGameAndLockMouse();
     }
-
-    // ======================== PANEL LINEA 1 ============================
 
     public void ShowPanelLinea1()
     {
@@ -91,7 +73,6 @@ public string nextSceneName = "Nivel3";  // <-- Cambia esto por tu escena real
         PauseGameAndUnlockMouse();
     }
 
-    // Asignar al botón del PanelLinea1
     public void OnLinea1Button()
     {
         if (panelLinea1 != null)
@@ -100,20 +81,15 @@ public string nextSceneName = "Nivel3";  // <-- Cambia esto por tu escena real
         ResumeGameAndLockMouse();
     }
 
-    // ======================== PANEL LINEA 2 ============================
-
     public void ShowPanelLinea2()
     {
         if (panelLinea2 != null)
             panelLinea2.SetActive(true);
 
-        // Al mostrar este panel, activamos el contador
         ShowBallCounter();
-
         PauseGameAndUnlockMouse();
     }
 
-    // Asignar al botón del PanelLinea2
     public void OnLinea2Button()
     {
         if (panelLinea2 != null)
@@ -121,24 +97,20 @@ public string nextSceneName = "Nivel3";  // <-- Cambia esto por tu escena real
 
         ResumeGameAndLockMouse();
     }
-    // ========================== Panel Final ============================
 
     public void ShowPanelFinal()
-{
-    if (panelFinal != null)
-        panelFinal.SetActive(true);
+    {
+        if (panelFinal != null)
+            panelFinal.SetActive(true);
 
-    PauseGameAndUnlockMouse();
-}
+        PauseGameAndUnlockMouse();
+    }
 
-public void OnFinalButton()
-{
-    ResumeGameAndLockMouse();
-    SceneManager.LoadScene(nextSceneName);
-}
-
-
-    // ===================== CONTADOR DE BALONES =========================
+    public void OnFinalButton()
+    {
+        ResumeGameAndLockMouse();
+        SceneManager.LoadScene(nextSceneName);
+    }
 
     public void ShowBallCounter()
     {
@@ -149,21 +121,17 @@ public void OnFinalButton()
     }
 
     public void RegisterBallKicked()
-{
-    kickedCount++;
-    UpdateBallCounter();
-
-    if (kickedCount >= totalBalls)
     {
-        ShowPanelFinal();
+        kickedCount++;
+        UpdateBallCounter();
+
+        if (kickedCount >= totalBalls)
+            ShowPanelFinal();
     }
-}
 
     private void UpdateBallCounter()
     {
         if (ballCounterText != null)
-        {
             ballCounterText.text = $"Balones: {kickedCount} / {totalBalls}";
-        }
     }
 }

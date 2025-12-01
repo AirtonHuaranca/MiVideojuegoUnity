@@ -9,8 +9,8 @@ public class GameManager : MonoBehaviour
     public BallController ballPrefab;
     public int numberOfBalls = 10;
 
-    [Header("Área del campo (BoxCollider)")]
-    public BoxCollider fieldArea;   // arrastra aquí CampoArea
+    [Header("Área del campo")]
+    public BoxCollider fieldArea;
 
     [Header("Velocidad")]
     public float extraSpeedPerMissingBall = 0.3f;
@@ -18,14 +18,14 @@ public class GameManager : MonoBehaviour
     [Header("Escena siguiente")]
     public string nextSceneName = "Nivel2";
 
-    [Header("UI Contador de Balones")]
-    public GameObject ballCounterRoot;   // panel / objeto que contiene el texto
-    public TMP_Text ballCounterText;     // texto "Balones: X / Y"
+    [Header("UI Contador")]
+    public GameObject ballCounterRoot;
+    public TMP_Text ballCounterText;
 
     [Header("UI Paneles Tutorial")]
-    public GameObject panelWelcome;      // Panel de bienvenida al iniciar el juego
-    public GameObject panelLinea1;       // Panel al cruzar la primera línea
-    public GameObject panelLinea2;       // Panel al cruzar la segunda línea
+    public GameObject panelWelcome;
+    public GameObject panelLinea1;
+    public GameObject panelLinea2;
 
     private List<BallController> balls = new List<BallController>();
     private int kickedCount = 0;
@@ -37,27 +37,22 @@ public class GameManager : MonoBehaviour
     {
         if (fieldArea == null)
         {
-            Debug.LogError("No se asignó el fieldArea (BoxCollider) en el GameManager.");
+            Debug.LogError("No se asignó fieldArea en el GameManager.");
             return;
         }
 
-        // Guardamos los bounds del área una sola vez
         fieldBounds = fieldArea.bounds;
-
-        // altura un poco encima del piso del área
         spawnY = fieldBounds.min.y + 0.5f;
 
         kickedCount = 0;
 
         SpawnBalls();
         UpdateBallsSpeed();
-        UpdateBallCounter();   // inicializamos el texto del contador
+        UpdateBallCounter();
 
-        // El contador empieza oculto hasta el panel 2
         if (ballCounterRoot != null)
             ballCounterRoot.SetActive(false);
 
-        // Mostrar panel de bienvenida y pausar el juego
         if (panelWelcome != null)
         {
             panelWelcome.SetActive(true);
@@ -75,20 +70,15 @@ public class GameManager : MonoBehaviour
             float z = Random.Range(fieldBounds.min.z, fieldBounds.max.z);
 
             Vector3 spawnPos = new Vector3(x, spawnY, z);
-
             BallController newBall = Instantiate(ballPrefab, spawnPos, Quaternion.identity);
 
-            // le pasamos el GameManager y el área del campo
             newBall.Init(this, fieldArea);
-
             balls.Add(newBall);
         }
     }
 
-    // Llamada desde BallController cuando se patea la pelota
     public void RegisterBallKicked(BallController ball)
     {
-        // por seguridad, evitar doble conteo
         if (!balls.Contains(ball))
             return;
 
@@ -98,13 +88,8 @@ public class GameManager : MonoBehaviour
         UpdateBallsSpeed();
         UpdateBallCounter();
 
-        Debug.Log($"Balones pateados: {kickedCount}/{numberOfBalls}");
-
-        // cuando se patean todos los balones → siguiente escena
         if (kickedCount >= numberOfBalls)
-        {
             SceneManager.LoadScene(nextSceneName);
-        }
     }
 
     private void UpdateBallsSpeed()
@@ -118,14 +103,10 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ==== CONTADOR DE BALONES ====
-
     private void UpdateBallCounter()
     {
         if (ballCounterText != null)
-        {
             ballCounterText.text = $"Balones: {kickedCount} / {numberOfBalls}";
-        }
     }
 
     public void ShowBallCounter()
@@ -135,8 +116,6 @@ public class GameManager : MonoBehaviour
 
         UpdateBallCounter();
     }
-
-    // ==== PAUSA / REANUDAR ====
 
     public void PauseGame()
     {
@@ -148,9 +127,6 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    // ==== PANELES DEL TUTORIAL ====
-
-    // botón del panel de bienvenida
     public void OnWelcomeButton()
     {
         if (panelWelcome != null)
@@ -159,7 +135,6 @@ public class GameManager : MonoBehaviour
         ResumeGame();
     }
 
-    // llamado desde Linea1Trigger
     public void ShowPanelLinea1()
     {
         if (panelLinea1 != null)
@@ -168,7 +143,6 @@ public class GameManager : MonoBehaviour
         PauseGame();
     }
 
-    // botón dentro del panel linea 1
     public void OnLinea1Button()
     {
         if (panelLinea1 != null)
@@ -177,19 +151,15 @@ public class GameManager : MonoBehaviour
         ResumeGame();
     }
 
-    // llamado desde Linea2Trigger
     public void ShowPanelLinea2()
     {
         if (panelLinea2 != null)
             panelLinea2.SetActive(true);
 
-        // al mismo tiempo mostramos el contador
         ShowBallCounter();
-
         PauseGame();
     }
 
-    // botón dentro del panel linea 2
     public void OnLinea2Button()
     {
         if (panelLinea2 != null)
@@ -198,6 +168,5 @@ public class GameManager : MonoBehaviour
         ResumeGame();
     }
 
-    // (opcional) por si quieres saber cuántos faltan
     public int RemainingBalls => numberOfBalls - kickedCount;
 }

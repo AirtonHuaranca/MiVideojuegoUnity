@@ -8,53 +8,48 @@ public class BallController : MonoBehaviour
     public float changeTargetInterval = 3f;
 
     [Header("Suavizado de movimiento")]
-    public float directionSmooth = 3f;      // qué tan suave gira hacia el nuevo destino
-    public float maxMoveSpeed = 10f;        // velocidad máxima para que no se vuelva loco
+    public float directionSmooth = 3f;
+    public float maxMoveSpeed = 10f;
 
     [Header("Área del campo")]
     [HideInInspector]
-    public BoxCollider fieldArea;           // CampoArea
+    public BoxCollider fieldArea;
 
     [Header("Desaparición")]
-    public float disappearDelay = 2f;       // tiempo antes de destruir el balón tras la patada
+    public float disappearDelay = 2f;
 
     private Rigidbody rb;
     private Vector3 currentTarget;
     private float timer;
     private float speedMultiplier = 1f;
 
-    private bool isActive = true;           // se mueve en el campo
-    private bool hasBeenKicked = false;     // ya fue pateado (para no contar 2 veces)
+    private bool isActive = true;
+    private bool hasBeenKicked = false;
 
     private GameManager gameManager;
 
-    private float baseY;                    // altura fija mientras está en el campo
-    private const float edgeMargin = 0.5f;  // un poco más grande para alejarse del borde
+    private float baseY;
+    private const float edgeMargin = 0.5f;
 
-    // suavizado de dirección
     private Vector3 smoothDir = Vector3.forward;
 
-    private void Awake()
+    void Awake()
     {
         rb = GetComponent<Rigidbody>();
-
-        // Mientras está en el campo: sin gravedad, solo desliza en X/Z
         rb.useGravity = false;
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-
-        // Mejor interpolación para movimiento suave
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
     }
 
-    private void Start()
+    void Start()
     {
         baseY = transform.position.y;
         smoothDir = transform.forward;
         PickNewTarget();
     }
 
-    private void Update()
+    void Update()
     {
         if (!isActive) return;
 
@@ -66,7 +61,7 @@ public class BallController : MonoBehaviour
         }
     }
 
-    private void FixedUpdate()
+    void FixedUpdate()
     {
         if (!isActive) return;
 
@@ -74,14 +69,13 @@ public class BallController : MonoBehaviour
         ClampToField();
     }
 
-    // Esto lo llama el GameManager al crear el balón
     public void Init(GameManager manager, BoxCollider area)
     {
         gameManager = manager;
         fieldArea = area;
     }
 
-    private void PickNewTarget()
+    void PickNewTarget()
     {
         if (fieldArea == null) return;
 
@@ -93,16 +87,14 @@ public class BallController : MonoBehaviour
         currentTarget = new Vector3(x, baseY, z);
     }
 
-    private void MoveTowardsTarget()
+    void MoveTowardsTarget()
     {
         if (fieldArea == null) return;
 
-        // dirección hacia el target, solo en X/Z
         Vector3 toTarget = currentTarget - transform.position;
         toTarget.y = 0f;
 
-        // si ya está cerca del objetivo, buscar otro
-        if (toTarget.sqrMagnitude < 0.5f * 0.5f)
+        if (toTarget.sqrMagnitude < 0.25f)
         {
             PickNewTarget();
             toTarget = currentTarget - transform.position;
@@ -110,22 +102,15 @@ public class BallController : MonoBehaviour
         }
 
         Vector3 rawDir = toTarget.normalized;
-
-        // suavizar el cambio de dirección para evitar tirones
         smoothDir = Vector3.Lerp(smoothDir, rawDir, Time.fixedDeltaTime * directionSmooth);
 
-        float targetSpeed = baseSpeed * speedMultiplier;
-
-        // limitar velocidad máxima para evitar tambaleo extremo
-        targetSpeed = Mathf.Min(targetSpeed, maxMoveSpeed);
+        float targetSpeed = Mathf.Min(baseSpeed * speedMultiplier, maxMoveSpeed);
 
         Vector3 desiredVelocity = new Vector3(smoothDir.x * targetSpeed, 0f, smoothDir.z * targetSpeed);
 
-        // mover con MovePosition para más estabilidad
         Vector3 nextPos = rb.position + desiredVelocity * Time.fixedDeltaTime;
         rb.MovePosition(nextPos);
 
-        // rotación suave hacia la dirección de movimiento
         if (desiredVelocity.sqrMagnitude > 0.01f)
         {
             Quaternion targetRot = Quaternion.LookRotation(new Vector3(desiredVelocity.x, 0f, desiredVelocity.z));
@@ -134,14 +119,12 @@ public class BallController : MonoBehaviour
         }
     }
 
-    private void ClampToField()
+    void ClampToField()
     {
         if (fieldArea == null) return;
 
         Bounds b = fieldArea.bounds;
         Vector3 pos = rb.position;
-
-        bool clamped = false;
 
         float minX = b.min.x + edgeMargin;
         float maxX = b.max.x - edgeMargin;
@@ -151,10 +134,7 @@ public class BallController : MonoBehaviour
         float clampedX = Mathf.Clamp(pos.x, minX, maxX);
         float clampedZ = Mathf.Clamp(pos.z, minZ, maxZ);
 
-        if (!Mathf.Approximately(pos.x, clampedX) || !Mathf.Approximately(pos.z, clampedZ))
-        {
-            clamped = true;
-        }
+        bool clamped = (!Mathf.Approximately(pos.x, clampedX) || !Mathf.Approximately(pos.z, clampedZ));
 
         pos.x = clampedX;
         pos.z = clampedZ;
@@ -162,7 +142,6 @@ public class BallController : MonoBehaviour
 
         rb.position = pos;
 
-        // si tocó borde, buscar un nuevo objetivo hacia el centro para evitar vibración ahí
         if (clamped)
         {
             PickNewTarget();
@@ -174,7 +153,6 @@ public class BallController : MonoBehaviour
         speedMultiplier = multiplier;
     }
 
-    // Cuando el jugador patea el balón
     public void OnKicked(Vector3 kickDirection, float kickForce)
     {
         if (hasBeenKicked) return;
