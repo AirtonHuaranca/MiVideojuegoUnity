@@ -190,9 +190,10 @@ public class BallController : MonoBehaviour
 
         rb.AddForce(kickDirection.normalized * kickForce, ForceMode.Impulse);
 
-        if (gameManager != null)
+        TutorialManager tm = FindObjectOfType<TutorialManager>();
+        if (tm != null)
         {
-            gameManager.RegisterBallKicked(this);
+            tm.RegisterBallKicked();
         }
 
         Destroy(gameObject, disappearDelay);

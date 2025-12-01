@@ -2,18 +2,15 @@ using UnityEngine;
 
 public class LockMouse : MonoBehaviour
 {
-    void Start()
+    public void Lock()
     {
-        Cursor.lockState = CursorLockMode.Locked; // bloqueado al centro
-        Cursor.visible = false;                   // oculto
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
-    void Update()
+    public void Unlock()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 }

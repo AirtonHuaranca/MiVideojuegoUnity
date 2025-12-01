@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
@@ -16,6 +17,15 @@ public class GameManager : MonoBehaviour
 
     [Header("Escena siguiente")]
     public string nextSceneName = "Nivel2";
+
+    [Header("UI Contador de Balones")]
+    public GameObject ballCounterRoot;   // panel / objeto que contiene el texto
+    public TMP_Text ballCounterText;     // texto "Balones: X / Y"
+
+    [Header("UI Paneles Tutorial")]
+    public GameObject panelWelcome;      // Panel de bienvenida al iniciar el juego
+    public GameObject panelLinea1;       // Panel al cruzar la primera línea
+    public GameObject panelLinea2;       // Panel al cruzar la segunda línea
 
     private List<BallController> balls = new List<BallController>();
     private int kickedCount = 0;
@@ -37,12 +47,28 @@ public class GameManager : MonoBehaviour
         // altura un poco encima del piso del área
         spawnY = fieldBounds.min.y + 0.5f;
 
+        kickedCount = 0;
+
         SpawnBalls();
         UpdateBallsSpeed();
+        UpdateBallCounter();   // inicializamos el texto del contador
+
+        // El contador empieza oculto hasta el panel 2
+        if (ballCounterRoot != null)
+            ballCounterRoot.SetActive(false);
+
+        // Mostrar panel de bienvenida y pausar el juego
+        if (panelWelcome != null)
+        {
+            panelWelcome.SetActive(true);
+            PauseGame();
+        }
     }
 
     private void SpawnBalls()
     {
+        balls.Clear();
+
         for (int i = 0; i < numberOfBalls; i++)
         {
             float x = Random.Range(fieldBounds.min.x, fieldBounds.max.x);
@@ -59,7 +85,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // 👇 Llamada desde BallController cuando se patea la pelota
+    // Llamada desde BallController cuando se patea la pelota
     public void RegisterBallKicked(BallController ball)
     {
         // por seguridad, evitar doble conteo
@@ -70,6 +96,7 @@ public class GameManager : MonoBehaviour
         balls.Remove(ball);
 
         UpdateBallsSpeed();
+        UpdateBallCounter();
 
         Debug.Log($"Balones pateados: {kickedCount}/{numberOfBalls}");
 
@@ -89,6 +116,86 @@ public class GameManager : MonoBehaviour
             if (b != null)
                 b.SetSpeedMultiplier(speedFactor);
         }
+    }
+
+    // ==== CONTADOR DE BALONES ====
+
+    private void UpdateBallCounter()
+    {
+        if (ballCounterText != null)
+        {
+            ballCounterText.text = $"Balones: {kickedCount} / {numberOfBalls}";
+        }
+    }
+
+    public void ShowBallCounter()
+    {
+        if (ballCounterRoot != null)
+            ballCounterRoot.SetActive(true);
+
+        UpdateBallCounter();
+    }
+
+    // ==== PAUSA / REANUDAR ====
+
+    public void PauseGame()
+    {
+        Time.timeScale = 0f;
+    }
+
+    public void ResumeGame()
+    {
+        Time.timeScale = 1f;
+    }
+
+    // ==== PANELES DEL TUTORIAL ====
+
+    // botón del panel de bienvenida
+    public void OnWelcomeButton()
+    {
+        if (panelWelcome != null)
+            panelWelcome.SetActive(false);
+
+        ResumeGame();
+    }
+
+    // llamado desde Linea1Trigger
+    public void ShowPanelLinea1()
+    {
+        if (panelLinea1 != null)
+            panelLinea1.SetActive(true);
+
+        PauseGame();
+    }
+
+    // botón dentro del panel linea 1
+    public void OnLinea1Button()
+    {
+        if (panelLinea1 != null)
+            panelLinea1.SetActive(false);
+
+        ResumeGame();
+    }
+
+    // llamado desde Linea2Trigger
+    public void ShowPanelLinea2()
+    {
+        if (panelLinea2 != null)
+            panelLinea2.SetActive(true);
+
+        // al mismo tiempo mostramos el contador
+        ShowBallCounter();
+
+        PauseGame();
+    }
+
+    // botón dentro del panel linea 2
+    public void OnLinea2Button()
+    {
+        if (panelLinea2 != null)
+            panelLinea2.SetActive(false);
+
+        ResumeGame();
     }
 
     // (opcional) por si quieres saber cuántos faltan

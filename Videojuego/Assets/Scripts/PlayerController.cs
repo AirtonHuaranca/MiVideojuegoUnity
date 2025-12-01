@@ -3,48 +3,65 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour
 {
+    // =================================================
+    // CORRER (Toggle Shift)
+    // =================================================
+    [Header("Correr")]
+    public float walkSpeed = 6f;      // Velocidad al caminar (solo W)
+    public float runSpeed = 10f;      // Velocidad al correr (Shift activado)
+    private bool isRunning = false;   // Estado actual: caminando / corriendo
+
+    // =================================================
+    // MOVIMIENTO GENERAL
+    // =================================================
     [Header("Movimiento")]
-    public float moveSpeed = 4f;          // velocidad base al caminar
-    public float runMultiplier = 1.7f;    // multiplicador al correr (Shift)
-    public float rotationSpeed = 10f;     // qué tan rápido gira hacia la dirección de movimiento
+    public float rotationSpeed = 10f;     // rapidez de giro
 
     [Header("Cámara (tipo Valorant)")]
-    public Transform cameraTransform;     // arrastra aquí la Main Camera (la que tiene el CinemachineBrain)
+    public Transform cameraTransform;     // asigna la MainCamera
 
+    // =================================================
+    // SALTO
+    // =================================================
     [Header("Salto")]
     public float jumpForce = 7f;
     public Transform groundCheck;
     public float groundCheckRadius = 0.25f;
     public LayerMask groundLayer;
 
+    // =================================================
+    // PATEAR
+    // =================================================
     [Header("Patear")]
-    public Transform kickPoint;      // Empty en el pie
-    public float kickRadius = 1.5f;  // radio de detección
-    public float kickForce = 20f;    // fuerza de la patada
-    public LayerMask ballLayer;      // capa de los balones
+    public Transform kickPoint;      
+    public float kickRadius = 1.5f;  
+    public float kickForce = 20f;    
+    public LayerMask ballLayer;      
 
-    // ventana de tiempo para detectar el balón
     public float kickDetectionWindow = 1f;
 
+    // =================================================
+    // ANIMACIÓN
+    // =================================================
     [Header("Animación")]
     public Animator animator;
 
+    // =================================================
+    // CONTROL INTERNO
+    // =================================================
     private Rigidbody rb;
-    private float inputV;  // W / S
-    private float inputH;  // A / D
+    private float inputV; 
+    private float inputH; 
     private bool isGrounded;
 
-    // control de ventana de patada
     private bool isKickingWindow = false;
     private float kickTimer = 0f;
 
-    // bloqueo de movimiento mientras patea
-    public float kickLockTime = 0.6f;
     private bool isKicking = false;
     private float kickLockTimer = 0f;
+    public float kickLockTime = 0.6f;
 
     public bool canMove = true;
-
 
     private void Awake()
     {
@@ -55,20 +72,21 @@ public class PlayerController : MonoBehaviour
 
         rb.freezeRotation = true;
 
-        // si no asignas la cámara a mano, intenta usar la Main Camera
         if (cameraTransform == null && Camera.main != null)
-        {
             cameraTransform = Camera.main.transform;
-        }
     }
 
     private void Update()
     {
-        // 1) INPUTS
-        inputV = Input.GetAxisRaw("Vertical");   // W (1) / S (-1)
-        inputH = Input.GetAxisRaw("Horizontal"); // A (-1) / D (1)
+        // ----------------------------------------------
+        // INPUTS
+        // ----------------------------------------------
+        inputV = Input.GetAxisRaw("Vertical");   // W/S
+        inputH = Input.GetAxisRaw("Horizontal"); // A/D
 
-        // 2) CHEQUEAR SUELO
+        // ----------------------------------------------
+        // CHEQUEAR SUELO
+        // ----------------------------------------------
         if (groundCheck != null)
         {
             isGrounded = Physics.CheckSphere(
@@ -82,57 +100,65 @@ public class PlayerController : MonoBehaviour
             isGrounded = true;
         }
 
-        // 3) ANIMACIONES (manteniendo tus parámetros)
+        // ----------------------------------------------
+        // ANIMACIÓN DE MOVIMIENTO
+        // ----------------------------------------------
         if (animator != null)
         {
             animator.SetBool("IsGrounded", isGrounded);
 
-            // MoveZ → adelante / atrás (W/S)
             float targetMoveZ = isKicking ? 0f : inputV;
-            float currentMoveZ = animator.GetFloat("MoveZ");
-            float smoothMoveZ = Mathf.Lerp(currentMoveZ, targetMoveZ, Time.deltaTime * 10f);
-            animator.SetFloat("MoveZ", smoothMoveZ);
+            float smoothZ = Mathf.Lerp(animator.GetFloat("MoveZ"), targetMoveZ, Time.deltaTime * 10f);
+            animator.SetFloat("MoveZ", smoothZ);
 
-            // Turn → izquierda / derecha (A/D) como strafe
             float targetTurn = isKicking ? 0f : inputH;
-            float currentTurn = animator.GetFloat("Turn");
-            float smoothTurn = Mathf.Lerp(currentTurn, targetTurn, Time.deltaTime * 10f);
+            float smoothTurn = Mathf.Lerp(animator.GetFloat("Turn"), targetTurn, Time.deltaTime * 10f);
             animator.SetFloat("Turn", smoothTurn);
+
+            // Si más adelante creas un parámetro "IsRunning" en el Animator,
+            // puedes descomentar la siguiente línea:
+            // animator.SetBool("IsRunning", isRunning);
         }
 
-        // 4) SALTO (Espacio)
+        // ----------------------------------------------
+        // SALTO
+        // ----------------------------------------------
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !isKicking)
         {
             Jump();
         }
 
-        // 5) PATEAR (CLICK IZQUIERDO)
+        // ----------------------------------------------
+        // PATEAR
+        // ----------------------------------------------
         if (Input.GetMouseButtonDown(0) && !isKicking)
         {
-            StartKick();   // arranca animación + ventana de detección
+            StartKick();
         }
 
-        // 6) Ventana de detección de patada
+        // Ventana de detección de patada
         if (isKickingWindow)
         {
             kickTimer += Time.deltaTime;
-
-            bool hitSomething = TryKickHit();
-
-            if (hitSomething || kickTimer >= kickDetectionWindow)
-            {
+            bool hit = TryKickHit();
+            if (hit || kickTimer >= kickDetectionWindow)
                 isKickingWindow = false;
-            }
         }
 
-        // 7) Tiempo de bloqueo mientras patea
+        // Bloqueo durante la patada
         if (isKicking)
         {
             kickLockTimer += Time.deltaTime;
             if (kickLockTimer >= kickLockTime)
-            {
-                isKicking = false;  // ya puede volver a moverse
-            }
+                isKicking = false;
+        }
+
+        // ============================================================
+        // CORRER (SHIFT TOGGLE)
+        // ============================================================
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            isRunning = !isRunning; // alterna entre correr/caminar
         }
     }
 
@@ -140,7 +166,6 @@ public class PlayerController : MonoBehaviour
     {
         if (isKicking)
         {
-            // mientras está pateando, no se mueve (solo gravedad)
             Vector3 vel = rb.velocity;
             vel.x = 0f;
             vel.z = 0f;
@@ -150,41 +175,36 @@ public class PlayerController : MonoBehaviour
 
         if (cameraTransform == null)
         {
-            // por seguridad, si no hay cámara, no hacemos movimiento tipo Valorant
-            Vector3 fallbackMove = transform.forward * inputV * moveSpeed;
-            Vector3 velocityFallback = new Vector3(fallbackMove.x, rb.velocity.y, fallbackMove.z);
-            rb.velocity = velocityFallback;
+            // fallback por si falta cámara
+            Vector3 fallback = transform.forward * (isRunning ? runSpeed : walkSpeed);
+            rb.velocity = new Vector3(fallback.x, rb.velocity.y, fallback.z);
             return;
         }
 
-        // 🎮 MOVIMIENTO ESTILO VALORANT (relativo a la cámara)
-        Vector3 camForward = cameraTransform.forward;
-        Vector3 camRight = cameraTransform.right;
+        // ----------------------------------------------
+        // MOVIMIENTO RELATIVO A LA CÁMARA
+        // ----------------------------------------------
+        Vector3 camF = cameraTransform.forward;
+        Vector3 camR = cameraTransform.right;
 
-        // quitar componente vertical para que no camine en pendiente rara
-        camForward.y = 0f;
-        camRight.y = 0f;
+        camF.y = 0;
+        camR.y = 0;
 
-        camForward.Normalize();
-        camRight.Normalize();
+        camF.Normalize();
+        camR.Normalize();
 
-        // dirección de movimiento según WASD y cámara
-        Vector3 moveDir = camForward * inputV + camRight * inputH;
+        Vector3 moveDir = camF * inputV + camR * inputH;
 
-        // ¿corriendo?
-        float currentSpeed = moveSpeed;
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            currentSpeed *= runMultiplier;
-        }
+        // velocidad según modo (caminar/correr)
+        float finalSpeed = isRunning ? runSpeed : walkSpeed;
 
         if (moveDir.sqrMagnitude > 0.001f)
         {
             moveDir.Normalize();
-            Vector3 targetVel = moveDir * currentSpeed;
+            Vector3 targetVel = moveDir * finalSpeed;
             rb.velocity = new Vector3(targetVel.x, rb.velocity.y, targetVel.z);
 
-            // ROTACIÓN SUAVE HACIA LA DIRECCIÓN DE MOVIMIENTO
+            // Rotación hacia la dirección de movimiento
             Quaternion targetRot = Quaternion.LookRotation(moveDir);
             transform.rotation = Quaternion.Slerp(
                 transform.rotation,
@@ -194,16 +214,15 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // sin input → solo gravedad
+            // sin input horizontal/vertical → solo gravedad
             rb.velocity = new Vector3(0f, rb.velocity.y, 0f);
         }
     }
 
     private void Jump()
     {
-        // limpiar velocidad vertical antes de saltar
         Vector3 vel = rb.velocity;
-        vel.y = 0f;
+        vel.y = 0;
         rb.velocity = vel;
 
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
@@ -215,25 +234,20 @@ public class PlayerController : MonoBehaviour
     private void StartKick()
     {
         if (animator != null)
-        {
             animator.SetTrigger("Kick");
-        }
 
-        // activar ventana de detección
         isKickingWindow = true;
         kickTimer = 0f;
 
-        // bloquear movimiento mientras dure la patada
         isKicking = true;
         kickLockTimer = 0f;
 
-        // limpiar velocidad horizontal
         Vector3 vel = rb.velocity;
-        vel.x = 0f;
-        vel.z = 0f;
+        vel.x = 0;
+        vel.z = 0;
         rb.velocity = vel;
 
-        Debug.Log("Click izquierdo, patada iniciada (ventana de detección activa).");
+        Debug.Log("Patada iniciada.");
     }
 
     private bool TryKickHit()
@@ -242,7 +256,7 @@ public class PlayerController : MonoBehaviour
         {
             Debug.LogWarning("KickPoint no asignado");
             return false;
-    }
+        }
 
         Collider[] hits = Physics.OverlapSphere(kickPoint.position, kickRadius, ballLayer);
 
@@ -265,14 +279,12 @@ public class PlayerController : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        // Esfera de patada (roja)
         if (kickPoint != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(kickPoint.position, kickRadius);
         }
 
-        // Esfera de groundCheck (amarilla)
         if (groundCheck != null)
         {
             Gizmos.color = Color.yellow;

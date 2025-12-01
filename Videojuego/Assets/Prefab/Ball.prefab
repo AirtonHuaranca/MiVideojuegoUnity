@@ -147,7 +147,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe3a4ffda54463843b9c30b0173039a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseSpeed: 3
-  changeTargetInterval: 4
+  baseSpeed: 10
+  changeTargetInterval: 3
+  directionSmooth: 3
+  maxMoveSpeed: 10
   fieldArea: {fileID: 0}
-  disappearDelay: 2
+  disappearDelay: 3
